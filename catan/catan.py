@@ -94,16 +94,24 @@ class Vertex:
         return 'Vertex(@({},{}))'.format(self.x, self.y)
 
     def settle(self, player):
-        if self.blocked:
+        if self.blocked and not self.settled:
             raise ValueError('vertex is blocked!')
         self.settled = player
         self.blocked = True
+
+    def unsettle(self):
+        # have to actually check it's not blocked by another vertex
+        self.settled = False
+        self.blocked = False
 
     def city(self, player):
         self.citied = player
 
     def block(self):
         self.blocked = True
+
+    def unblock(self):
+        self.blocked = False
 
 
 class Verts:
@@ -212,6 +220,17 @@ class Board:
         for vert in self.vv(x, y):
             vert.block()
 
+    def unsettle(self, x, y):
+        # unsettle and unblock
+        self.verts[x, y].unsettle()
+        for vert in self.vv(x, y):
+            vert.unblock()
+        
+        # re-settle all vertices in order to check blocking is correct
+        for vert in self.verts:
+            if vert.settled:
+                self.settle(vert.x, vert.y, vert.settled)
+
 
     # get adjacent items
     def tt(self, x, y):
@@ -305,7 +324,7 @@ class Board:
         # add in a 0 pip placeholder for all already settled spots
         # lets us decay all subsequent resources
         # there is quite a bit of duplication here, because, for a certain player this code
-        # will get repeated a lot. solution is maybe to pass a pipmap in?
+        # will get repeated a lot. solution is maybe to pass a pipmap in and calculate under best()?
         for vert in self.verts.player(player):
             for t in self.vt(x, y):
                 pipmap[t.resource].append(0)
@@ -359,6 +378,21 @@ class Board:
         df['total'] = df.sum('columns')
         df['tiles'] = df.index.map(lambda pos: self.vt(*pos).short_print())
         return df.sort_values(method, ascending=False)
+
+    def best_pair(self, method='relpips', player=None):
+        pairs = {}
+        ranked = self.best(player=player)
+        for (x,y), first in ranked.iterrows():
+            self.settle(x, y, player=player)
+            best_pair = self.best(player=player).reset_index().iloc[0]
+            pairs[x, y, best_pair['x'], best_pair['y']] = first[method] + best_pair[method]
+            self.unsettle(x, y)
+        
+        df = pd.Series(pairs)
+        df.index.names = ['x1', 'y1', 'x2', 'y2']
+        df = df.to_frame(method).sort_values(method, ascending=False)
+
+        return df
 
 
     # plotting
@@ -424,3 +458,17 @@ class Player:
     def pickup(self, card):
         self.cards.append(card)
 
+
+class Game:
+    """ holds a board and players
+    """
+    def __init__(self, tiles, colours):
+        self.players = {}
+        for i, colour in colours:
+            self.players[colour] = Player(colour, i)
+
+        self.current_player = self.players[colours[0]]
+        self.board = Board(tiles)
+
+    def current_player(colour):
+        self.current_player = self.players[colour]
