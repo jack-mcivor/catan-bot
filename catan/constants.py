@@ -9,7 +9,8 @@ resources = [
 players = [
     'orange',
     'white',
-    'blue'
+    'blue',
+    'red'
 ]
 expected_pips = {
     # averages at 58/5
@@ -45,11 +46,13 @@ resource_occurances = {
     'desert': 1
 }
 
+resdecay = [1, 0.75, 0.5, 0.25] + [0.25]*20
 rolls = [2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12]
 reslist = []
 for res, n in resource_occurances.items():
     reslist += [res]*n
 
+# 19 legal tiles
 legal_tiles = [
     (2,4),(4,4),(6,4),
     (1,3),(3,3),(5,3),(7,3),
@@ -58,6 +61,7 @@ legal_tiles = [
     (2,0),(4,0),(6,0)
 ]
 
+# 54 legal verts
 legal_verts = ([(i, 5) for i in range(2, 6+3)] +
                [(i, 4) for i in range(1, 7+3)] +
                [(i, 3) for i in range(0, 8+3)] +
