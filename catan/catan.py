@@ -10,6 +10,8 @@ from catan.constants import *
 
 
 def roll_to_pips(roll):
+    """Map from a roll 1-12 to the number of 'pips' 1-5
+    """
     if roll is None:
         return 0
     if roll == 7 or roll < 2 or roll > 13:
@@ -18,6 +20,8 @@ def roll_to_pips(roll):
 
 
 def random_tiles():
+    """Create a number list of tiles by shuffling legal tiles
+    """
     tiles = []
     random.shuffle(legal_tiles)
     for i, (x, y) in enumerate(legal_tiles):
@@ -293,13 +297,16 @@ class Board:
     metrics = ['pips', 'relpips', 'pipworth', 'ave_potential', 'blocking']
 
     def pips(self, x, y, *_):
+        """Total adjacent pips to vertex
+        """
         pips = 0
         for tile in self.vt(x, y):
             pips += tile.pips
         return pips
 
     def relpips(self, x, y, *_):
-        """ gets the worth of a resource, considering adjacent tiles
+        """Total worth of adjacent resources to vertex, considering resource scarcity and
+           exogenous weights
         """
         pips = 0
         for tile in self.vt(x, y):
@@ -310,8 +317,8 @@ class Board:
         return pips*(58/5)
 
     def pipworth(self, x, y, player=None):
-        """ gets the worth of a resource, considering adjacent tiles
-        and a player's other settlements
+        """Total worth of adjacent resources to vertex, considering resource scarcity,
+           exogenous weights and players current settlements
         """
         pipmap = defaultdict(list)
 
@@ -339,13 +346,16 @@ class Board:
         return pips*(58/5)
 
     def ave_potential(self, x, y, player=None):
+        """The maximum average potential score, considering the (up to 3) roads a player may
+           build from a settlement
+        """
         return max(self.all_potentials(x, y, player).values())
 
     def all_potentials(self, x, y, player=None):
-        """ considers all potential settlement locations
-        returns a dictionary of x,y: pips, representing
-        up to 3 vertex locations 1 step away from x,y.
-        pips is the sum of the locations one road away from this vertex
+        """Considers all potential settlement locations
+           returns a dictionary of x,y: pips, representing
+           up to 3 vertex locations 1 step away from x,y.
+           pips is the sum of the locations one road away from this vertex
         """
         vert_pips = {}
         for vert in self.vv(x, y):
@@ -357,6 +367,11 @@ class Board:
         return vert_pips
 
     def blocking(self, x, y, player=None):
+        """Blocking score- the average of the pipworth of the 3 surrounding vertices,
+           which may not be settled if a settlement if placed here
+
+           TODO: some vertices are already blocked
+        """
         pips = 0
         for vert in self.vv(x, y):
             pips += self.pipworth(vert.x, vert.y, player)
@@ -365,6 +380,8 @@ class Board:
 
     # get all metrics
     def worths(self, method='pips', player=None):
+        """Given a method, calculate the worth of every nonblocked vertex
+        """
         worths = {}
         for vert in self.verts.nonblocked():
             x, y = vert.x, vert.y
@@ -372,6 +389,8 @@ class Board:
         return worths
 
     def best(self, method='relpips', player=None):
+        """Return a sorted dataframe of vertex worths (for a particular player)
+        """
         values = [pd.Series(self.worths(m, player), name=m) for m in self.metrics]
         df = pd.concat(values, axis=1)
         df.index.names = ['x', 'y']
@@ -380,6 +399,8 @@ class Board:
         return df.sort_values(method, ascending=False)
 
     def best_pair(self, method='relpips', player=None):
+        """The best two positions for a player at this point in time
+        """
         pairs = {}
         ranked = self.best(player=player)
         for (x,y), first in ranked.iterrows():
