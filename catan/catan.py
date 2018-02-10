@@ -472,3 +472,14 @@ class Game:
 
     def current_player(colour):
         self.current_player = self.players[colour]
+
+    def roll():
+        rolled = random.randint(1, 6) + random.randint(1, 6)
+        tiles = brd.tiles.roll(rolled)
+        for tile in tiles:
+            verts = brd.vv(tile)
+            for vert in verts:
+                if vert.settled:
+                    players[vert.settled].pickup(tile.resource)
+        # next player?
+

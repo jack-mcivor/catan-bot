@@ -8,7 +8,7 @@ resources = [
 ]
 players = [
     'orange',
-    'white',
+    'grey',  # white
     'blue',
     'red'
 ]
