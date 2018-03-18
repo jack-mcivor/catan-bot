@@ -1,1 +1,0 @@
-from catan.catan import *

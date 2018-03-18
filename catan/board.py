@@ -6,18 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
+from catan.items import Tile, Tiles, Vertex, Verts
 from catan.constants import *
-
-
-def roll_to_pips(roll):
-    """Map from a roll 1-12 to the number of 'pips' 1-5.
-       None will map to 0 pips (desert)
-    """
-    if roll is None:
-        return 0
-    if roll == 7 or roll < 2 or roll > 13:
-        raise ValueError('illegal roll')
-    return roll_map[roll]
 
 
 def random_tiles():
@@ -28,135 +18,13 @@ def random_tiles():
     for i, (x, y) in enumerate(legal_tiles):
         res = reslist[i]
         if res == 'desert':
+            # doesn't get a roll marker
             roll = None
         else:
             roll = rolls[i]
         tiles.append(Tile(x, y, resource=res, roll=roll))
 
     return tiles
-
-
-class Tile:
-    def __init__(self, x, y, resource=None, roll=None):
-        if (x, y) not in legal_tiles:
-            raise ValueError('{}, {} is an illegal position'.format(x, y))
-        self.x = x
-        self.y = y
-        self.resource = resource
-        self.roll = roll
-        self.pips = roll_to_pips(roll)
-
-    def __repr__(self):
-        return 'Tile(@({},{}) {} {})'.format(self.x, self.y, self.resource, self.roll)
-
-
-class Tiles:
-    """Basically just a dictionary that holds tiles
-
-    Gives us the ability to do a nice [] getitem, and define what happens when
-    the item doesn't exist
-    """
-    def __init__(self, tiles):
-        self.map = {(t.x, t.y): t for t in tiles if t is not None}
-
-    def __getitem__(self, pos):
-        # x, y = pos
-        return self.map.get(pos, None)
-
-    def __len__(self):
-        return len(self.map)
-
-    def __repr__(self):
-        to_print = 'Tiles({}):'.format(len(self))
-        for tile in self:
-            to_print += '\n  {}'.format(repr(tile))
-        return to_print
-
-    def short_print(self):
-        return ' '.join(['{} {}'.format(tile.resource, tile.roll) for tile in self])
-
-    def __iter__(self):
-        for (x,y), tile in self.map.items():
-            yield tile
-
-    def roll(self, roll):
-        for tile in self:
-            if tile.roll == roll:
-                yield tile
-
-    def resource(self, resource):
-        for tile in self:
-            if tile.resource == resource:
-                yield tile
-
-
-class Vertex:
-    def __init__(self, x, y, port=None):
-        if (x, y) not in legal_verts:
-            raise ValueError('{}, {} is an illegal position'.format(x, y))
-        self.x = x
-        self.y = y
-        self.settled = False
-        self.citied = False
-        self.blocked = False
-
-    def __repr__(self):
-        return 'Vertex(@({},{}))'.format(self.x, self.y)
-
-    def settle(self, player):
-        if self.blocked and not self.settled:
-            raise ValueError('vertex is blocked!')
-        self.settled = player
-        self.blocked = True
-
-    def unsettle(self):
-        # have to actually check it's not blocked by another vertex
-        self.settled = False
-        self.blocked = False
-
-    def city(self, player):
-        self.citied = player
-
-    def block(self):
-        self.blocked = True
-
-    def unblock(self):
-        self.blocked = False
-
-
-class Verts:
-    def __init__(self, verts):
-        self.map = {(v.x, v.y): v for v in verts if v is not None}
-
-    def __getitem__(self, pos):
-        # x, y = pos
-        return self.map.get(pos, None)
-
-    def __len__(self):
-        return len(self.map)
-
-    def __repr__(self):
-        to_print = 'Verts({}):'.format(len(self))
-        for vert in self:
-            to_print += '\n  {}'.format(repr(vert))
-        return to_print
-
-    def __iter__(self):
-        for (x,y), vert in self.map.items():
-            yield vert
-
-    def nonblocked(self):
-        for vert in self:
-            if not vert.blocked:
-                yield vert
-
-    def player(self, colour):
-        for vert in self:
-            if vert.settled == colour:
-                yield vert
-
-    def append(self, vert):
-        self.map[vert.x, vert.y] = vert
 
 
 class Board:
@@ -177,11 +45,8 @@ class Board:
     def __init__(self, tiles):
         """ tiles is a list of legal tiles
         """
-        if isinstance(tiles, Tiles):
-            self.tiles = tiles
-        else:
-            self.tiles = Tiles(tiles)
-
+        # automatically handle if is already Tiles type
+        self.tiles = Tiles(tiles)
         # initialise with an empty set of vertices
         self.verts = Verts([Vertex(x, y) for x, y in legal_verts])
         self.total_pips = {res: sum(tile.pips for tile in self.tiles.resource(res)) for res in resources}
@@ -461,44 +326,3 @@ class Board:
             i += 1
             plt.plot(x/2, y, marker='o', color='purple')
             plt.text(x/2+0.1, y, i, color='purple')
-
-
-class Player:
-    def __init__(self,  colour, starting):
-        if colour not in players:
-            raise ValueError('illegal colour {}'.format(colour))
-        self.colour = colour
-        self.starting = starting
-        self.verts = Verts([])
-        self.cards = []
-        self.rescards = []
-
-    def settle(self, vertex):
-        self.verts.append(vertex)
-
-    def pickup(self, card):
-        self.cards.append(card)
-
-
-class Game:
-    """ holds a board and players
-    """
-    def __init__(self, tiles, colours):
-        self.players = {}
-        for i, colour in colours:
-            self.players[colour] = Player(colour, i)
-
-        self.current_player = self.players[colours[0]]
-        self.board = Board(tiles)
-
-    def set_current_player(self, colour):
-        self.current_player = self.players[colour]
-
-    def roll(self):
-        rolled = random.randint(1, 6) + random.randint(1, 6)
-        for tile in self.board.tiles.roll(rolled):
-            for vert in self.board.tv(tile.x, tile.y):
-                if vert.settled:
-                    players[vert.settled].pickup(tile.resource)
-        # next player?
-
