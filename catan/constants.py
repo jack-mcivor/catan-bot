@@ -14,6 +14,7 @@ players = [
 ]
 expected_pips = {
     # averages at 58/5
+    # 58 pips available, 18 tiles
     'rock': (58/18)*3,
     'clay': (58/18)*3,
     'wheat': (58/18)*4,
@@ -47,6 +48,8 @@ resource_occurances = {
 }
 
 resdecay = [1, 0.75, 0.5, 0.25] + [0.25]*20
+
+# lists of resources and rolls which are used for random board generation- corresponds to hexes and roll markers
 rolls = [2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12]
 reslist = []
 for res, n in resource_occurances.items():

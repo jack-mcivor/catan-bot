@@ -80,8 +80,13 @@ class Tiles:
             yield tile
 
     def roll(self, roll):
-        for (x,y), tile in self.map.items():
+        for tile in self:
             if tile.roll == roll:
+                yield tile
+
+    def resource(self, resource):
+        for tile in self:
+            if tile.resource == resource:
                 yield tile
 
 
@@ -141,12 +146,12 @@ class Verts:
             yield vert
 
     def nonblocked(self):
-        for (x,y), vert in self.map.items():
+        for vert in self:
             if not vert.blocked:
                 yield vert
 
     def player(self, colour):
-        for (x,y), vert in self.map.items():
+        for vert in self:
             if vert.settled == colour:
                 yield vert
 
@@ -179,8 +184,7 @@ class Board:
 
         # initialise with an empty set of vertices
         self.verts = Verts([Vertex(x, y) for x, y in legal_verts])
-        self.total_pips = {res: self._pips_by_resource(res) for res in resources}
-        self.res_table = self._resource_table()
+        self.total_pips = {res: sum(tile.pips for tile in self.tiles.resource(res)) for res in resources}
 
     @classmethod
     def random(cls):
@@ -207,24 +211,13 @@ class Board:
 
         return False
 
-    def _resource_table(self):
+    def resource_table(self):
         """A DataFrame summarising the board
         """
-        table = pd.concat([
-            pd.Series(expected_pips, name='expected_pips'),
-            pd.Series(self.total_pips, name='total_pips')
-        ], axis=1)
+        table = pd.DataFrame({'expected_pips': expected_pips,
+                              'total_pips': self.total_pips})
         table['more_than_expec'] = table['total_pips'] / table['expected_pips']
         return table
-
-    def _pips_by_resource(self, resource):
-        """ search total pips by resource
-        """
-        pips = 0
-        for tile in self.tiles:
-            if tile.resource == resource:
-                pips += tile.pips
-        return pips
 
     # actions
     def settle(self, x, y, player):
@@ -336,8 +329,7 @@ class Board:
             pipmap[res].append(tile.pips*resource_weighting[res]/self.total_pips[res])
 
         # Player state adjustment
-        # add in a 0 pip placeholder for all already settled spots
-        # lets us decay all subsequent resources
+        # add in a 0 pip placeholder for all already settled spots- lets us decay all subsequent resources
         # there is quite a bit of duplication here, because, for a certain player this code
         # will get repeated a lot. solution is maybe to pass a pipmap in and calculate under best()?
         for vert in self.verts.player(player):
@@ -377,6 +369,8 @@ class Board:
     def blocking(self, x, y, player=None):
         """Blocking score- the average of the pipworth of the 3 surrounding vertices,
            which may not be settled if a settlement if placed here
+
+        TODO: this should maybe be considered as blocking other's pairs- eg. a player really needs rock, so this is a good block
         """
         pips = 0
         for vert in self.vv(x, y).nonblocked():
