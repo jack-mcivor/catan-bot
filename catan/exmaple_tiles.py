@@ -1,4 +1,4 @@
-from catan.catan import Tile
+from catan.items import Tile
 
 tiles = [[
     Tile(2, 0, 'clay', 9),

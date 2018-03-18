@@ -43,4 +43,3 @@ class Game:
                 if vert.settled:
                     players[vert.settled].pickup(tile.resource)
         # next player?
-
