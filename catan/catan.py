@@ -10,7 +10,8 @@ from catan.constants import *
 
 
 def roll_to_pips(roll):
-    """Map from a roll 1-12 to the number of 'pips' 1-5
+    """Map from a roll 1-12 to the number of 'pips' 1-5.
+       None will map to 0 pips (desert)
     """
     if roll is None:
         return 0
@@ -56,14 +57,14 @@ class Tiles:
     the item doesn't exist
     """
     def __init__(self, tiles):
-        self.tiles = {(t.x, t.y): t for t in tiles if t is not None}
+        self.map = {(t.x, t.y): t for t in tiles if t is not None}
 
     def __getitem__(self, pos):
         # x, y = pos
-        return self.tiles.get(pos, None)
+        return self.map.get(pos, None)
 
     def __len__(self):
-        return len(self.tiles)
+        return len(self.map)
 
     def __repr__(self):
         to_print = 'Tiles({}):'.format(len(self))
@@ -75,11 +76,11 @@ class Tiles:
         return ' '.join(['{} {}'.format(tile.resource, tile.roll) for tile in self])
 
     def __iter__(self):
-        for (x,y), tile in self.tiles.items():
+        for (x,y), tile in self.map.items():
             yield tile
 
     def roll(self, roll):
-        for (x,y), tile in self.tiles.items():
+        for (x,y), tile in self.map.items():
             if tile.roll == roll:
                 yield tile
 
@@ -120,16 +121,14 @@ class Vertex:
 
 class Verts:
     def __init__(self, verts):
-        # maybe call this map?
-        # so we'd have brd.verts.map.items():
-        self.verts = {(v.x, v.y): v for v in verts if v is not None}
+        self.map = {(v.x, v.y): v for v in verts if v is not None}
 
     def __getitem__(self, pos):
         # x, y = pos
-        return self.verts.get(pos, None)
+        return self.map.get(pos, None)
 
     def __len__(self):
-        return len(self.verts)
+        return len(self.map)
 
     def __repr__(self):
         to_print = 'Verts({}):'.format(len(self))
@@ -138,25 +137,27 @@ class Verts:
         return to_print
 
     def __iter__(self):
-        for (x,y), vert in self.verts.items():
+        for (x,y), vert in self.map.items():
             yield vert
 
     def nonblocked(self):
-        for (x,y), vert in self.verts.items():
+        for (x,y), vert in self.map.items():
             if not vert.blocked:
                 yield vert
 
     def player(self, colour):
-        for (x,y), vert in self.verts.items():
+        for (x,y), vert in self.map.items():
             if vert.settled == colour:
                 yield vert
 
     def append(self, vert):
-        self.verts[vert.x, vert.y] = vert
+        self.map[vert.x, vert.y] = vert
 
 
 class Board:
-    """ a container for vertices and tiles
+    """A container for vertices and tiles
+
+    Contains board state (what has been settled) and functions to calculate worth of a vertex.
 
     a standard board has...
         19 tiles
@@ -183,6 +184,9 @@ class Board:
 
     @classmethod
     def random(cls):
+        """Randomly create a board
+           Do not allow a 6 and 8 to be adjacent
+        """
         is_bad = True
         while is_bad:
             brd = cls(random_tiles())
@@ -190,6 +194,8 @@ class Board:
         return brd
 
     def _six_eight_adjacent(self):
+        """Are any 6 or 8 tiles next to each other?
+        """
         for tile in self.tiles.roll(6):
             for t2 in self.tt(tile.x, tile.y):
                 if t2.roll == 8 or t2.roll == 6:
@@ -202,6 +208,8 @@ class Board:
         return False
 
     def _resource_table(self):
+        """A DataFrame summarising the board
+        """
         table = pd.concat([
             pd.Series(expected_pips, name='expected_pips'),
             pd.Series(self.total_pips, name='total_pips')
@@ -229,7 +237,7 @@ class Board:
         self.verts[x, y].unsettle()
         for vert in self.vv(x, y):
             vert.unblock()
-        
+
         # re-settle all vertices in order to check blocking is correct
         for vert in self.verts:
             if vert.settled:
@@ -299,35 +307,35 @@ class Board:
     def pips(self, x, y, *_):
         """Total adjacent pips to vertex
         """
-        pips = 0
-        for tile in self.vt(x, y):
-            pips += tile.pips
-        return pips
+        return sum(tile.pips for tile in self.vt(x, y))
 
     def relpips(self, x, y, *_):
         """Total worth of adjacent resources to vertex, considering resource scarcity and
            exogenous weights
         """
-        pips = 0
+        worth = 0
         for tile in self.vt(x, y):
             res = tile.resource
             if res == 'desert':
-                return 0
-            pips += tile.pips*resource_weighting[res]/self.total_pips[res]
-        return pips*(58/5)
+                continue
+            worth += tile.pips*resource_weighting[res]/self.total_pips[res]
+        # scale worth to be on the same scale as regular pips. this is the average expected pips
+        return worth*(58/5)
 
     def pipworth(self, x, y, player=None):
         """Total worth of adjacent resources to vertex, considering resource scarcity,
            exogenous weights and players current settlements
         """
+        # a mapping from resource type to a list of worths
         pipmap = defaultdict(list)
 
         for tile in self.vt(x, y):
             res = tile.resource
             if res == 'desert':
-                return 0
+                continue
             pipmap[res].append(tile.pips*resource_weighting[res]/self.total_pips[res])
 
+        # Player state adjustment
         # add in a 0 pip placeholder for all already settled spots
         # lets us decay all subsequent resources
         # there is quite a bit of duplication here, because, for a certain player this code
@@ -336,14 +344,13 @@ class Board:
             for t in self.vt(x, y):
                 pipmap[t.resource].append(0)
 
-        # resource diversity on surrounding tiles
         # decay the higher value or later resources by more
-        pips = 0
+        worth = 0
         for res, piplist in pipmap.items():
-            pips += np.dot(sorted(piplist), resdecay[:len(piplist)])
+            worth += np.dot(sorted(piplist), resdecay[:len(piplist)])
 
         # roll diversity??
-        return pips*(58/5)
+        return worth*(58/5)
 
     def ave_potential(self, x, y, player=None):
         """The maximum average potential score, considering the (up to 3) roads a player may
@@ -357,23 +364,22 @@ class Board:
            up to 3 vertex locations 1 step away from x,y.
            pips is the sum of the locations one road away from this vertex
         """
-        vert_pips = {}
+        vert_worth = {}
         for vert in self.vv(x, y):
-            pips = 0
+            worth = 0
             for vert2 in self.vv(vert.x, vert.y):
-                if (vert2.x, vert2.y) != (x, y):
-                    pips += self.pipworth(vert2.x, vert2.y, player)
-            vert_pips[vert.x, vert.y] = pips/2
-        return vert_pips
+                if (vert2.x, vert2.y) == (x, y):
+                    continue
+                worth += self.pipworth(vert2.x, vert2.y, player)
+            vert_worth[vert.x, vert.y] = worth/2
+        return vert_worth
 
     def blocking(self, x, y, player=None):
         """Blocking score- the average of the pipworth of the 3 surrounding vertices,
            which may not be settled if a settlement if placed here
-
-           TODO: some vertices are already blocked
         """
         pips = 0
-        for vert in self.vv(x, y):
+        for vert in self.vv(x, y).nonblocked():
             pips += self.pipworth(vert.x, vert.y, player)
         return pips/3
 
@@ -388,7 +394,7 @@ class Board:
             worths[x, y] = getattr(self, method)(x, y, player)
         return worths
 
-    def best(self, method='relpips', player=None):
+    def best(self, sort_method='relpips', player=None):
         """Return a sorted dataframe of vertex worths (for a particular player)
         """
         values = [pd.Series(self.worths(m, player), name=m) for m in self.metrics]
@@ -396,24 +402,24 @@ class Board:
         df.index.names = ['x', 'y']
         df['total'] = df.sum('columns')
         df['tiles'] = df.index.map(lambda pos: self.vt(*pos).short_print())
-        return df.sort_values(method, ascending=False)
+        return df.sort_values(sort_method, ascending=False)
 
     def best_pair(self, method='relpips', player=None):
         """The best two positions for a player at this point in time
+           This will implicitly take into account the fact that two of the same resource is worth less
         """
         pairs = {}
         ranked = self.best(player=player)
-        for (x,y), first in ranked.iterrows():
+        for (x, y), first_vert_worth in ranked.iterrows():
+            # fake settling this location and find the other best location
             self.settle(x, y, player=player)
             best_pair = self.best(player=player).reset_index().iloc[0]
-            pairs[x, y, best_pair['x'], best_pair['y']] = first[method] + best_pair[method]
+            pairs[x, y, best_pair['x'], best_pair['y']] = first_vert_worth[method] + best_pair[method]
             self.unsettle(x, y)
-        
+
         df = pd.Series(pairs)
         df.index.names = ['x1', 'y1', 'x2', 'y2']
-        df = df.to_frame(method).sort_values(method, ascending=False)
-
-        return df
+        return df.to_frame(method).sort_values(method, ascending=False)
 
 
     # plotting
@@ -491,15 +497,13 @@ class Game:
         self.current_player = self.players[colours[0]]
         self.board = Board(tiles)
 
-    def current_player(colour):
+    def set_current_player(self, colour):
         self.current_player = self.players[colour]
 
-    def roll():
+    def roll(self):
         rolled = random.randint(1, 6) + random.randint(1, 6)
-        tiles = brd.tiles.roll(rolled)
-        for tile in tiles:
-            verts = brd.vv(tile)
-            for vert in verts:
+        for tile in self.board.tiles.roll(rolled):
+            for vert in self.board.tv(tile.x, tile.y):
                 if vert.settled:
                     players[vert.settled].pickup(tile.resource)
         # next player?
