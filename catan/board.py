@@ -281,6 +281,31 @@ class Board:
         return df.to_frame(method).sort_values(method, ascending=False)
 
 
+    # def b2(self, method='relpips', player=None, player_c):
+    #     """Return a dataframe of best positions for the second to last placement (B2 in a A1 B1 C1 C2 B2 A2 scheme)
+    #     """
+    #     worths = {}
+    #     for vert in self.verts.nonblocked():
+    #         x, y = vert.x, vert.y
+    #         # pretend to settle, then simulate next players actions
+    #         self.settle(x, y, player=player)
+    #         # NEST HERE for next players action afterwards:
+    #         # for vert in self.verts.nonblocked():
+    #         best_pair = self.best(player=player_c).reset_index().iloc[0]  # TODO we don't need to calculate for every method, which is faster
+    #         self.settle(best_pair[x], best_pair[y], player_c)  # TODO we actually don't need this to block, which is faster to unsettle again
+
+    #         # get the worth of this position, knowing the next players action
+    #         self.unsettle(x, y)
+    #         worths[x, y] = getattr(self, method)(x, y, player)  # self.pipworth(x, y, player=player)
+            
+    #         # unsettle next players best action
+    #         self.unsettle(best_pair[x], best_pair[y])
+        
+    #     df = pd.Series(worths)
+    #     df.index.names = ['x', 'y']
+    #     return df.to_frame(method).sort_values(method, ascending=False)
+
+
     # plotting
     def plot(self):
         fig, ax = plt.subplots(figsize=(10,10))
