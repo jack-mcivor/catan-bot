@@ -31,12 +31,12 @@ resource_weighting = {
     'desert': 0
 }
 resource_colours = {
-    'wood': 'darkgreen',
+    'wood': 'green',
     'sheep': 'lightgreen',
     'rock': 'grey',
-    'clay': 'red',
-    'wheat': 'orange',
-    'desert': None
+    'clay': 'indianred',
+    'wheat': 'gold',
+    'desert': 'lemonchiffon'
 }
 resource_occurances = {
     'rock': 3,

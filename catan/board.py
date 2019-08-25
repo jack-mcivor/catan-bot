@@ -310,44 +310,54 @@ class Board:
     def plot(self):
         fig, ax = plt.subplots(figsize=(10,10))
 
-        # plot vertices
-        for v in self.verts:
-            x, y = v.x, v.y
-            if (x+y) % 2 == 0:
-                y += 0.13
-            else:
-                y -= 0.13
-            plt.plot(x/2, y, marker='.', c='k')
-            if v.settled:
-                ax.add_patch(patches.Rectangle((x/2-0.1, y-0.1), 0.2, 0.2,
-                                               color=v.settled, alpha=0.7))
-
         # plot tile
         for t in self.tiles:
-            # center our tiles
-            x, y = t.x+1, t.y+0.5
-            if t.roll == 6 or t.roll == 8:
-                c = 'r'
-            else:
-                c = 'k'
-
-            # plot roll
-            plt.text(x/2, y, t.roll,
-                     horizontalalignment='center',
-                     verticalalignment='center', color=c)
-
+            x, y = tile_centre(t.x, t.y)
             # plot hexagon
             c = resource_colours[t.resource]
-            ax.add_patch(patches.RegularPolygon((x/2, y), 6, 0.55,
-                                                color=c, alpha=0.5))
+            ax.add_patch(patches.RegularPolygon((x, y), 6, 0.55,
+                                                color=c, alpha=1))
+
+            if t.resource == 'desert':
+                continue
+
+            ax.add_patch(patches.Circle((x, y), radius=0.2, color='papayawhip', alpha=1))
+
+            # plot roll
+            c = 'firebrick' if t.roll == 6 or t.roll == 8 else 'black'
+            plt.text(x, y+0.05, t.roll,
+                     horizontalalignment='center',
+                     verticalalignment='center', color=c, 
+                     fontsize=14, weight='bold')
+
+
+            plt.axis('off')
+
+        # plot vertices
+        for v in self.verts:
+            x, y = vertex_edge(v.x, v.y)
+            if v.settled:
+                ax.add_patch(patches.Rectangle((x-0.13, y-0.1), 0.26, 0.2,
+                                               color=v.settled, alpha=1))
+            else:
+                plt.plot(x, y, marker='.', c='k', alpha=0.1)
+    
 
     def plot_best(self, method='total', n=5):
-        i = 0
-        for (x, y), row in self.best(method).head(n).iterrows():
-            if (x+y) % 2 == 0:
-                y += 0.13
-            else:
-                y -= 0.13
-            i += 1
-            plt.plot(x/2, y, marker='o', color='purple')
-            plt.text(x/2+0.1, y, i, color='purple')
+        for i, ((x, y), row) in enumerate(self.best(method).head(n).iterrows(), start=1):
+            x, y = vertex_edge(x, y)
+            plt.plot(x, y, marker='o', color='purple')
+            plt.text(x+0.1, y, i, color='purple')
+
+
+def tile_centre(x, y):
+    return x/2+0.5, y+0.5
+
+
+def vertex_edge(x, y):
+    if (x+y) % 2 == 0:
+        y += 0.13
+    else:
+        y -= 0.13
+
+    return x/2, y
