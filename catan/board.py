@@ -321,6 +321,7 @@ class Board:
             if t.resource == 'desert':
                 continue
 
+            # plot marker
             ax.add_patch(patches.Circle((x, y), radius=0.2, color='papayawhip', alpha=1))
 
             # plot roll
@@ -330,6 +331,9 @@ class Board:
                      verticalalignment='center', color=c, 
                      fontsize=14, weight='bold')
 
+            # plot pips
+            p = [x+i/30 for i in pip_positions(roll_map[t.roll])]
+            plt.plot(p, [y-0.07]*len(p), marker='.', linestyle='', c=c)
 
             plt.axis('off')
 
@@ -361,3 +365,16 @@ def vertex_edge(x, y):
         y -= 0.13
 
     return x/2, y
+
+
+def pip_positions(n):
+    if n == 1:
+        return [0]
+    elif n == 2:
+        return [-1, 1]
+    elif n == 3:
+        return [-2, 0, 2]
+    elif n == 4:
+        return [-3, -1, 1, 3]
+    elif n == 5:
+        return [-4, -2, 0, 2, 4]
