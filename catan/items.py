@@ -1,4 +1,20 @@
-from catan.constants import legal_tiles, legal_verts, roll_map
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
+from catan.constants import legal_tiles, legal_verts, roll_map, resource_colours
+
+
+def pip_positions(n):
+    if n == 1:
+        return [0]
+    elif n == 2:
+        return [-1, 1]
+    elif n == 3:
+        return [-2, 0, 2]
+    elif n == 4:
+        return [-3, -1, 1, 3]
+    elif n == 5:
+        return [-4, -2, 0, 2, 4]
 
 
 def roll_to_pips(roll):
@@ -24,6 +40,34 @@ class Tile:
 
     def __repr__(self):
         return 'Tile(@({},{}) {} {})'.format(self.x, self.y, self.resource, self.roll)
+    
+    @property
+    def real_centre_xy(self):
+        return self.x/2+0.5, self.y+0.5
+
+    def plot(self, ax):
+        x, y = self.real_centre_xy
+        # plot hexagon
+        c = resource_colours[self.resource]
+        ax.add_patch(patches.RegularPolygon((x, y), 6, 0.55,
+                                            color=c, alpha=1))
+
+        if self.resource == 'desert':
+            return
+
+        # plot marker
+        ax.add_patch(patches.Circle((x, y), radius=0.2, color='papayawhip', alpha=1))
+
+        # plot roll
+        c = 'firebrick' if self.roll == 6 or self.roll == 8 else 'black'
+        plt.text(x, y+0.05, self.roll,
+                    horizontalalignment='center',
+                    verticalalignment='center', color=c, 
+                    fontsize=14, weight='bold')
+
+        # plot pips
+        p = [x+i/30 for i in pip_positions(self.pips)]
+        plt.plot(p, [y-0.07]*len(p), marker='.', linestyle='', c=c)
 
 
 class Tiles:
@@ -65,6 +109,10 @@ class Tiles:
             if tile.resource == resource:
                 yield tile
 
+    def plot(self, ax):
+        for tile in self:
+            tile.plot(ax)
+
 
 class Vertex:
     def __init__(self, x, y, port=None):
@@ -75,9 +123,20 @@ class Vertex:
         self.settled = False
         self.citied = False
         self.blocked = False
+        self.port = port  # typically only certain vertices have ports
 
     def __repr__(self):
         return 'Vertex(@({},{}))'.format(self.x, self.y)
+
+    @property
+    def real_xy(self):
+        x, y = self.x, self.y
+        if (x + y) % 2 == 0:
+            y += 0.13
+        else:
+            y -= 0.13
+
+        return x/2, y
 
     def settle(self, player):
         if self.blocked and not self.settled:
@@ -99,6 +158,14 @@ class Vertex:
     def unblock(self):
         self.blocked = False
 
+    def plot(self, ax):
+        x, y = self.real_xy
+        if self.settled:
+            ax.add_patch(patches.Rectangle((x-0.13, y-0.1), 0.26, 0.2,
+                                        color=self.settled, alpha=1))
+
+        if self.port:
+            plt.plot(x, y, marker='.', colour='blue')
 
 class Verts:
     def __init__(self, verts):
@@ -133,3 +200,15 @@ class Verts:
 
     def append(self, vert):
         self.map[vert.x, vert.y] = vert
+
+    def plot(self, ax):
+        for vert in self:
+            vert.plot(ax)
+
+
+class Port:
+    types = ['wheat 2:1', 'rock 2:1', 'sheep 2:1', 'clay 2:1', 'wood 2:1', 'any 3:1']
+    def __init__(self, port_type):
+        if port_type not in types:
+            raise ValueError(f'Port type {port_type} not allowed! Must be one of {types}')
+        self.type = port_type

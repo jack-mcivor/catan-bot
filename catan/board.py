@@ -309,72 +309,17 @@ class Board:
     # plotting
     def plot(self):
         fig, ax = plt.subplots(figsize=(10,10))
+        plt.axis('off')
+        # Ocean
+        # octagon = ([0.7, -0.3], [4.2, -0.3], [5.5, 2.5], [4.2, 5.2], [0.7, 5.2], [-0.5, 2.5])
+        # ax.add_patch(patches.Polygon(octagon, color='blue'))
 
-        # plot tile
-        for t in self.tiles:
-            x, y = tile_centre(t.x, t.y)
-            # plot hexagon
-            c = resource_colours[t.resource]
-            ax.add_patch(patches.RegularPolygon((x, y), 6, 0.55,
-                                                color=c, alpha=1))
-
-            if t.resource == 'desert':
-                continue
-
-            # plot marker
-            ax.add_patch(patches.Circle((x, y), radius=0.2, color='papayawhip', alpha=1))
-
-            # plot roll
-            c = 'firebrick' if t.roll == 6 or t.roll == 8 else 'black'
-            plt.text(x, y+0.05, t.roll,
-                     horizontalalignment='center',
-                     verticalalignment='center', color=c, 
-                     fontsize=14, weight='bold')
-
-            # plot pips
-            p = [x+i/30 for i in pip_positions(roll_map[t.roll])]
-            plt.plot(p, [y-0.07]*len(p), marker='.', linestyle='', c=c)
-
-            plt.axis('off')
-
-        # plot vertices
-        for v in self.verts:
-            x, y = vertex_edge(v.x, v.y)
-            if v.settled:
-                ax.add_patch(patches.Rectangle((x-0.13, y-0.1), 0.26, 0.2,
-                                               color=v.settled, alpha=1))
-            else:
-                plt.plot(x, y, marker='.', c='k', alpha=0.1)
+        self.tiles.plot(ax)
+        self.verts.plot(ax)
     
 
     def plot_best(self, method='total', n=5):
         for i, ((x, y), row) in enumerate(self.best(method).head(n).iterrows(), start=1):
-            x, y = vertex_edge(x, y)
-            plt.plot(x, y, marker='o', color='purple')
-            plt.text(x+0.1, y, i, color='purple')
-
-
-def tile_centre(x, y):
-    return x/2+0.5, y+0.5
-
-
-def vertex_edge(x, y):
-    if (x+y) % 2 == 0:
-        y += 0.13
-    else:
-        y -= 0.13
-
-    return x/2, y
-
-
-def pip_positions(n):
-    if n == 1:
-        return [0]
-    elif n == 2:
-        return [-1, 1]
-    elif n == 3:
-        return [-2, 0, 2]
-    elif n == 4:
-        return [-3, -1, 1, 3]
-    elif n == 5:
-        return [-4, -2, 0, 2, 4]
+            x, y = Vertex(x, y).real_xy
+            plt.plot(x, y, marker='x', color='purple', markeredgewidth=3)
+            plt.text(x+0.1, y, i, color='purple', weight='bold')
