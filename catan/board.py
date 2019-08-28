@@ -266,13 +266,13 @@ class Board:
            This will implicitly take into account the fact that two of the same resource is worth less
         """
         pairs = {}
-        ranked = self.best(player=player)
-        for (x, y), first_vert_worth in ranked.iterrows():
+        for (x1, y1), first_worth in self.worths(method, player).items():
             # fake settling this location and find the other best location
-            self.settle(x, y, player=player)
-            best_pair = self.best(player=player).reset_index().iloc[0]
-            pairs[x, y, best_pair['x'], best_pair['y']] = first_vert_worth[method] + best_pair[method]
-            self.unsettle(x, y)
+            self.settle(x1, y1, player=player)
+            pair_worths = self.worths(method, player)
+            x2, y2 = max(pair_worths, key=pair_worths.get)
+            pairs[x1, y1, x2, y2] = first_worth + pair_worths[x2, y2]
+            self.unsettle(x1, y1)
 
         df = pd.DataFrame({method: pairs}).rename_axis(['x1', 'y1', 'x2', 'y2'])
         return df.sort_values(method, ascending=False)
