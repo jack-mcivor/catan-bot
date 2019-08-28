@@ -256,9 +256,7 @@ class Board:
     def best(self, sort_method='relpips', player=None):
         """Return a sorted dataframe of vertex worths (for a particular player)
         """
-        values = [pd.Series(self.worths(m, player), name=m) for m in self.metrics]
-        df = pd.concat(values, axis=1)
-        df.index.names = ['x', 'y']
+        df = pd.DataFrame({m: self.worths(m, player) for m in self.metrics}).rename_axis(['x', 'y'])
         df['total'] = df.sum('columns')
         df['tiles'] = df.index.map(lambda pos: self.vt(*pos).short_print())
         return df.sort_values(sort_method, ascending=False)
@@ -276,9 +274,8 @@ class Board:
             pairs[x, y, best_pair['x'], best_pair['y']] = first_vert_worth[method] + best_pair[method]
             self.unsettle(x, y)
 
-        df = pd.Series(pairs)
-        df.index.names = ['x1', 'y1', 'x2', 'y2']
-        return df.to_frame(method).sort_values(method, ascending=False)
+        df = pd.DataFrame({method: pairs}).rename_axis(['x1', 'y1', 'x2', 'y2'])
+        return df.sort_values(method, ascending=False)
 
 
     # def b2(self, method='relpips', player=None, player_c):
