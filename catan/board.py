@@ -1,4 +1,5 @@
 import random
+import itertools
 from collections import defaultdict
 
 import numpy as np
@@ -65,15 +66,10 @@ class Board:
     def _six_eight_adjacent(self):
         """Are any 6 or 8 tiles next to each other?
         """
-        for tile in self.tiles.roll(6):
+        for tile in itertools.chain(self.tiles.roll(6), self.tiles.roll(8)):
             for t2 in self.tt(tile.x, tile.y):
                 if t2.roll == 8 or t2.roll == 6:
                     return True
-        for tile in self.tiles.roll(8):
-            for t2 in self.tt(tile.x, tile.y):
-                if t2.roll == 8 or t2.roll == 6:
-                    return True
-
         return False
 
     def resource_table(self):
