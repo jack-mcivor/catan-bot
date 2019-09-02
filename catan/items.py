@@ -1,7 +1,14 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-from catan.constants import legal_tiles, legal_verts, roll_map, resource_colours
+from catan.constants import legal_tiles, legal_verts, roll_to_pips, resource_colours
+import math
+
+
+def hexcoords_to_real_coords(x, y):
+    realx = math.sqrt(3)/2 * x
+    realy = 3/2 * y
+    return realx, realy
 
 
 def pip_positions(n):
@@ -43,31 +50,27 @@ class Tile:
     
     @property
     def real_centre_xy(self):
-        return self.x/2+0.5, self.y+0.5
-
+        return hexcoords_to_real_coords(self.x+1, self.y+0.5)
+    
     def plot(self, ax):
         x, y = self.real_centre_xy
         # plot hexagon
         c = resource_colours[self.resource]
-        ax.add_patch(patches.RegularPolygon((x, y), 6, 0.55,
-                                            color=c, alpha=1))
+        ax.add_patch(patches.RegularPolygon((x, y), 6, 1, facecolor=c, linewidth=6, edgecolor='floralwhite'))
 
         if self.resource == 'desert':
             return
 
         # plot marker
-        ax.add_patch(patches.Circle((x, y), radius=0.2, color='papayawhip', alpha=1))
+        ax.add_patch(patches.Circle((x, y), radius=0.35, color='papayawhip'))
 
         # plot roll
         c = 'firebrick' if self.roll == 6 or self.roll == 8 else 'black'
-        plt.text(x, y+0.05, self.roll,
-                    horizontalalignment='center',
-                    verticalalignment='center', color=c, 
-                    fontsize=14, weight='bold')
+        plt.text(x, y+0.05, self.roll, ha='center', va='center', c=c, fontsize=14, weight='bold')
 
         # plot pips
-        p = [x+i/30 for i in pip_positions(self.pips)]
-        plt.plot(p, [y-0.07]*len(p), marker='.', linestyle='', c=c)
+        p = [x+i/20 for i in pip_positions(self.pips)]
+        plt.plot(p, [y-0.15]*self.pips, marker='.', linestyle='', c=c)
 
 
 class Tiles:
@@ -131,12 +134,13 @@ class Vertex:
     @property
     def real_xy(self):
         x, y = self.x, self.y
+        offset = 1 - math.sqrt(3)/2
         if (x + y) % 2 == 0:
-            y += 0.13
+            y += offset
         else:
-            y -= 0.13
+            y -= offset
 
-        return x/2, y
+        return hexcoords_to_real_coords(x, y)
 
     def settle(self, player):
         if self.blocked and not self.settled:
